@@ -104,15 +104,18 @@ def create_training_examples(parquet_file: str,
         # Create the training example
         example = {
             "instruction": row[problem_column],
-            "input": {
-                "code_snippet": original_code,
-                "file_path": filepath
-            },
+            "input": original_code,
             "output": new_code
+            # "instruction": row[problem_column],
+            # "input": {
+            #     "code_snippet": original_code,
+            #     "file_path": filepath
+            # },
+            # "output": new_code
         }
-        
+
         training_examples.append(example)
-    
+
     return training_examples
 
 def save_training_examples(examples: List[Dict[str, Any]], output_file: str, format_type: str = 'json'):
@@ -151,5 +154,5 @@ def process_and_save_examples(parquet_file: str, output_file: str, format_type: 
 
 if __name__ == "__main__":
     parquet_file = "./SWE-bench/data/dev-00000-of-00001.parquet"
-    output_file = "training_dataset.json"  # .json extension for the array format
+    output_file = "training_dataset_.json"  # .json extension for the array format
     process_and_save_examples(parquet_file, output_file, format_type='json')
