@@ -68,9 +68,9 @@ def parse_git_diff(diff_text: str) -> Tuple[str, str, str]:
     
     return '\n'.join(original_file), '\n'.join(new_file), filepath
 
-def create_training_examples(parquet_file: str, 
-                            patch: str = 'patch',
-                            problem_column: str = 'problem_statement') -> List[Dict[str, Any]]:
+def create_dataset(parquet_file: str, 
+                   patch: str = 'patch',
+                   problem_column: str = 'problem_statement') -> List[Dict[str, Any]]:
     """
     Create training examples in the required JSON format from a parquet file.
     
@@ -90,7 +90,7 @@ def create_training_examples(parquet_file: str,
     if problem_column not in df.columns:
         raise ValueError(f"Column '{problem_column}' not found in parquet file")
     
-    training_examples = []
+    complete_dataset = []
     
     # Process each row in the dataframe
     for _, row in df.iterrows():
@@ -103,22 +103,27 @@ def create_training_examples(parquet_file: str,
         
         # Create the training example
         example = {
-            "instruction": row[problem_column],
-            "input": original_code,
-            "output": new_code
-            # "instruction": row[problem_column],
-            # "input": {
-            #     "code_snippet": original_code,
-            #     "file_path": filepath
-            # },
-            # "output": new_code
+            "instruction": "Please fix the issue given the problem statement, the code snippet and any additional information given below.",
+            "input": {
+                "problem_statement": row[problem_column],
+                "code_snippet": original_code,
+                "file_path": filepath
+                # "paradigm": 
+            },
+            "output": row[patch]
         }
 
-        training_examples.append(example)
+        complete_dataset.append(example)
 
-    return training_examples
+    percent_20 = len(complete_dataset) // 5
+    percent_80 = len(complete_dataset) - percent_20
+    # Split dataset into training and validation sets
+    training = complete_dataset[:percent_80]
+    validation = complete_dataset[percent_80:]
 
-def save_training_examples(examples: List[Dict[str, Any]], output_file: str, format_type: str = 'json'):
+    return training, validation
+
+def save_write_file(examples: List[Dict[str, Any]], output_file: str, format_type: str = 'json'):
     """
     Save training examples to a file.
     
@@ -138,7 +143,7 @@ def save_training_examples(examples: List[Dict[str, Any]], output_file: str, for
             json.dump(examples, f, indent=2)
 
 # Example usage
-def process_and_save_examples(parquet_file: str, output_file: str, format_type: str = 'json'):
+def process_and_save_examples(parquet_file: str, output_training_file: str, output_validation_file: str, format_type: str = 'json'):
     """
     Process parquet file and save training examples.
     
@@ -147,12 +152,14 @@ def process_and_save_examples(parquet_file: str, output_file: str, format_type: 
         output_file (str): Path to output file
         format_type (str): 'jsonl' for one JSON object per line, 'json' for a single JSON array
     """
-    examples = create_training_examples(parquet_file)
-    save_training_examples(examples, output_file, format_type)
-    print(f"Created {len(examples)} training examples and saved to {output_file} in {format_type} format")
-
+    training, validation = create_dataset(parquet_file)
+    save_write_file(training, output_training_file, format_type)
+    save_write_file(validation, output_validation_file, format_type)
+    print(f"Created {len(training)} training examples and saved to {output_training_file} in {format_type} format")
+    print(f"Created {len(validation)} validation examples and saved to {output_validation_file} in {format_type} format")
 
 if __name__ == "__main__":
-    parquet_file = "./SWE-bench/data/dev-00000-of-00001.parquet"
-    output_file = "training_dataset_.json"  # .json extension for the array format
-    process_and_save_examples(parquet_file, output_file, format_type='json')
+    parquet_file = "./SWE-bench/data/test-00000-of-00001_Verified.parquet"
+    output_training_file = "training_verified.json"
+    output_validation_file = "validation_verified.json"
+    process_and_save_examples(parquet_file, output_training_file, output_validation_file, format_type='json')
